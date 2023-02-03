@@ -1,6 +1,12 @@
 import QRCode from "qrcode";
 import { WechatyBuilder } from "wechaty";
-import { CACHES, ChatGPTBot } from "./chatgpt.js";
+import { ChatGPTBot } from "./service/chatgpt.js";
+import log4js from "log4js"
+import log4jsConfig from "../log4js.config.js";
+
+// 配置
+log4js.configure(log4jsConfig);
+export const logger = log4js.getLogger();
 
 // Wechaty instance
 const weChatBot = WechatyBuilder.build({
