@@ -69,6 +69,29 @@ export class Conversation {
     }
   }
 
+  // 获取图片
+  images = async (openAI: OpenAIApi, query: string) => {
+    console.log('image query\n', query)
+    try {
+      const response = await openAI.createImage({
+        prompt: query,
+        response_format: 'url',
+        size: "512x512",
+        n: 1  // 每次生成图片的数量
+      });
+      return response?.data?.data[0]?.url
+    } catch (e: any) {
+      const errorResponse = e?.response;
+      const errorCode = errorResponse?.status;
+      const errorStatus = errorResponse?.statusText;
+      const errorMessage = errorResponse?.data?.error?.message;
+      console.error(`❌ Code ${errorCode}: ${errorStatus}`);
+      console.error(`❌ ${errorMessage}`);
+      logger.error(`❌ ${e}`)
+      this.retryRequest()
+    }
+  }
+
   // async createRequest (api: string, requestBody: any): Promise<any>{
   //   // 超时时间
   //   axios.defaults.timeout = 60000
@@ -88,4 +111,6 @@ export class Conversation {
   //     throw new Error(`❌ ${res}`);
   //   }
   // }
+
+  
 }

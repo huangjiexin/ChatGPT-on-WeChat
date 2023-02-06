@@ -2,6 +2,7 @@
 基于ChatGPT的微信聊天机器人，通过 [OpenAI](https://www.npmjs.com/package/openai) 接口生成对话内容，使用 [Wechaty](http://wechaty.js.org/) 实现微信消息的接收和自动回复。已实现的特性如下：
 
 - [x] **文本对话：** 接收私聊及群组中的微信消息，使用ChatGPT生成回复内容，完成自动回复
+- [x] **找图片：** 接收私聊及群组中的微信消息，使用ChatGPT生成图片自动回复，消息格式：'找图片xxxxxxxxxx'
 
 ## 使用效果
 ### 个人聊天

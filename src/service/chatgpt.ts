@@ -5,6 +5,7 @@ import { Configuration, OpenAIApi } from "openai";
 import { Conversation } from "./conversation.js";
 import { Caches } from "./caches.js";
 import { UserMessage } from "./userMessage.js";
+import { FileBox }  from 'file-box'
 
 // ChatGPT error response configuration
 export const chatgptErrorMessage = "🤖️王大锤卡了，请稍后再试～";
@@ -81,6 +82,12 @@ export class ChatGPTBot {
     }
   }
 
+  async replyImage (talker: RoomInterface | ContactInterface | undefined,
+    mesasge: FileBox
+  ): Promise<void> {
+    await talker?.say(mesasge);
+  }
+
   // reply with the segmented messages from a single-long message
   async reply(
     talker: RoomInterface | ContactInterface | undefined,
@@ -99,17 +106,38 @@ export class ChatGPTBot {
     }
   }
 
-  // reply to private message
-  async onPrivateMessage(userMessage: UserMessage) {
+  async getChatgptReply (userMessage: UserMessage) {
+    const type = userMessage.cleanText.startsWith('找图片') ? 'image' : 'text'
     // 获取缓存并转成包含上下文的信息
     const chatgptMessage = this.toChatgptString(CACHES.getUserCacheContext(userMessage.uid))
+    let reply = {};
+    switch (type) {
+      case 'text':
+        const text = await new Conversation().completions(this.OpenAI, chatgptMessage)
+        reply['text'] = text;
+        break
+      case 'image': 
+        const url = await new Conversation().images(this.OpenAI, userMessage.cleanText.split('找图片')[1])
+        reply['image'] = url ? FileBox.fromUrl(url) : ''
+        break
+    }
+    return reply
+  }
+
+  // reply to private message
+  async onPrivateMessage(userMessage: UserMessage) {
     try {
-      const chatgptReplyMessage = await new Conversation().completions(this.OpenAI, chatgptMessage)
+      const replyRes = await this.getChatgptReply(userMessage)
+      const chatgptReplyMessage = replyRes['text'] ? replyRes['text']: replyRes['image']
       if (chatgptReplyMessage) {
         console.log("🤖️ Chatbot says: ", chatgptReplyMessage);
         CACHES.setUserCacheContext(userMessage, chatgptReplyMessage);
         // send the ChatGPT reply to chat
-        await this.reply(userMessage.talker, chatgptReplyMessage);
+        if (replyRes['image']) {
+          await this.replyImage(userMessage.talker, chatgptReplyMessage);
+        } else {
+          await this.reply(userMessage.talker, chatgptReplyMessage);
+        }
       }
     } catch (e: any) {
       await this.reply(userMessage.talker, e.message);
@@ -118,17 +146,20 @@ export class ChatGPTBot {
 
   // reply to group message
   async onGroupMessage(userMessage: UserMessage) {
-    // 获取缓存并转成包含上下文的信息
-    const chatgptMessage = this.toChatgptString(CACHES.getUserCacheContext(userMessage.uid))
     try {
-      const chatgptReplyMessage = await new Conversation().completions(this.OpenAI, chatgptMessage)
+      const replyRes = await this.getChatgptReply(userMessage)
+      const chatgptReplyMessage = replyRes['text'] ? replyRes['text']: replyRes['image']
       if (chatgptReplyMessage) {
-        console.log("🤖️ Chatbot says: ", chatgptReplyMessage);
+        console.log("🤖️ Chatbot says: ", chatgptReplyMessage.remoteUrl);
         // the reply consist of: original text and bot reply
-        const result = `「${userMessage.talker.name()}：${userMessage.cleanText}」\n- - - - - - - - - - - - - - -\n${chatgptReplyMessage}`;
+        const result = `「${userMessage.talker.name()}：${userMessage.cleanText}」\n- - - - - - - - - - - - - - -\n${chatgptReplyMessage.remoteUrl}`;
         // 设置缓存
-        CACHES.setUserCacheContext(userMessage, chatgptReplyMessage);
-        await this.reply(userMessage.room, result);
+        CACHES.setUserCacheContext(userMessage, chatgptReplyMessage.remoteUrl);
+        if (replyRes['image']) {
+          await this.replyImage(userMessage.room, chatgptReplyMessage);
+        } else {
+          await this.reply(userMessage.room, chatgptReplyMessage);
+        }
       }
     } catch (e: any) {
       await this.reply(userMessage.room, e.message);
