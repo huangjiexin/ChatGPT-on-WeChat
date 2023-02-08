@@ -37,6 +37,8 @@ export class Caches {
     } else {
       this.userCaches[userMessage.uid].context.push(curCache)
     }
+    console.log('userCashs', this.userCaches)
+    console.log('requestCaches', this.requestCaches)
     return this.userCaches[userMessage.uid].context
   }
 

@@ -37,6 +37,7 @@ export class Conversation {
     const retryRequest = CACHES.getRequestCache()
     if (retryRequest?.retryCount && retryRequest.retryCount-- > 0) {
       console.error(`👉重试: 剩余次数${retryRequest.retryCount}`);
+      CACHES.clearUserRequestCache(retryRequest.userMessage.uid)
       setTimeout(() => {
         chatGPTBot.dealMessage(retryRequest.userMessage)
       }, 15000)
@@ -49,12 +50,13 @@ export class Conversation {
   }
   // 对话
   completions = async (openAI: OpenAIApi, mesasge: string) => {
-    console.log('context\n', mesasge)
     try {
       const response = await openAI.createCompletion({
         ...ChatGPTModelConfig,
         prompt: mesasge,
       });
+      // 请求完成，清除缓存的请求
+      CACHES.requestCaches.length > 0 ? CACHES.shiftRequestCache() : null
       return response?.data?.choices[0]?.text?.trim() || '';
     }
     catch (e: any) {
@@ -71,7 +73,6 @@ export class Conversation {
 
   // 获取图片
   images = async (openAI: OpenAIApi, query: string) => {
-    console.log('image query\n', query)
     try {
       const response = await openAI.createImage({
         prompt: query,
@@ -79,6 +80,8 @@ export class Conversation {
         size: "512x512",
         n: 1  // 每次生成图片的数量
       });
+      // 请求完成，清除缓存的请求
+      CACHES.requestCaches.length > 0 ? CACHES.shiftRequestCache() : null
       return response?.data?.data[0]?.url
     } catch (e: any) {
       const errorResponse = e?.response;

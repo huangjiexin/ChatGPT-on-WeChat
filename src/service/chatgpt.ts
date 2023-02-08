@@ -107,17 +107,18 @@ export class ChatGPTBot {
   }
 
   async getChatgptReply (userMessage: UserMessage) {
-    const type = userMessage.cleanText.startsWith('找图片') ? 'image' : 'text'
+    const type = userMessage.cleanText.startsWith('图片') ? 'image' : 'text'
     // 获取缓存并转成包含上下文的信息
     const chatgptMessage = this.toChatgptString(CACHES.getUserCacheContext(userMessage.uid))
     let reply = {};
     switch (type) {
       case 'text':
         const text = await new Conversation().completions(this.OpenAI, chatgptMessage)
+        CACHES.setUserCacheContext(userMessage, text);
         reply['text'] = text;
         break
       case 'image': 
-        const url = await new Conversation().images(this.OpenAI, userMessage.cleanText.split('找图片')[1])
+        const url = await new Conversation().images(this.OpenAI, userMessage.cleanText.split('图片')[1])
         reply['image'] = url ? FileBox.fromUrl(url) : ''
         break
     }
@@ -128,10 +129,9 @@ export class ChatGPTBot {
   async onPrivateMessage(userMessage: UserMessage) {
     try {
       const replyRes = await this.getChatgptReply(userMessage)
-      const chatgptReplyMessage = replyRes['text'] ? replyRes['text']: replyRes['image']
+      const chatgptReplyMessage = replyRes['text'] || replyRes['image']
       if (chatgptReplyMessage) {
         console.log("🤖️ Chatbot says: ", chatgptReplyMessage);
-        CACHES.setUserCacheContext(userMessage, chatgptReplyMessage);
         // send the ChatGPT reply to chat
         if (replyRes['image']) {
           await this.replyImage(userMessage.talker, chatgptReplyMessage);
@@ -148,17 +148,16 @@ export class ChatGPTBot {
   async onGroupMessage(userMessage: UserMessage) {
     try {
       const replyRes = await this.getChatgptReply(userMessage)
-      const chatgptReplyMessage = replyRes['text'] ? replyRes['text']: replyRes['image']
+      const chatgptReplyMessage = replyRes['text'] || replyRes['image']
       if (chatgptReplyMessage) {
-        console.log("🤖️ Chatbot says: ", chatgptReplyMessage.remoteUrl);
+        const cacheText = chatgptReplyMessage.remoteUrl || chatgptReplyMessage
+        console.log("🤖️ Chatbot says: ", cacheText);
         // the reply consist of: original text and bot reply
-        const result = `「${userMessage.talker.name()}：${userMessage.cleanText}」\n- - - - - - - - - - - - - - -\n${chatgptReplyMessage.remoteUrl}`;
-        // 设置缓存
-        CACHES.setUserCacheContext(userMessage, chatgptReplyMessage.remoteUrl);
+        const result = `「${userMessage.talker.name()}：${userMessage.cleanText}」\n- - - - - - - - - - - - - - -\n${cacheText}`;
         if (replyRes['image']) {
           await this.replyImage(userMessage.room, chatgptReplyMessage);
         } else {
-          await this.reply(userMessage.room, chatgptReplyMessage);
+          await this.reply(userMessage.room, result);
         }
       }
     } catch (e: any) {
